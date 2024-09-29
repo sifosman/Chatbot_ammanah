@@ -1,53 +1,56 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
+const bodyParser = require('body-parser');
+
+// Initialize Express App
 const app = express();
+const port = process.env.PORT || 3000;
 
-// Middleware to parse JSON data from webhook
-app.use(express.json());
+// Middleware to parse incoming JSON data
+app.use(bodyParser.json());
 
-// Endpoint to receive webhook data
-app.post('/webhook', (req, res) => {
-  const data = req.body;
+// Set SendGrid API Key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-  // Log data for debugging purposes
-  console.log('Webhook received:', data);
-
-  // Send an email with the received data
-  sendEmail(data);
-
-  res.status(200).send('Webhook received');
-});
-
-// Email function
+// Function to send email using SendGrid
 async function sendEmail(data) {
-  // Create a transporter using your email service (e.g., Gmail)
-  let transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: 'sifosman@gmail.com',
-      pass: 'Thierry14247!',
-    },
-  });
-
-  // Define the email options
-  let mailOptions = {
-    from: 'sifosman@gmail.com',
-    to: 'sifosman@gmail.com',
-    subject: 'New Data from Whatsapp Bot',
-    text: `Data received: ${JSON.stringify(data)}`, // you can format this better based on your data
+  const msg = {
+    to: 'sifosman@gmail.com', // Change to the recipient's email address
+    from: 'dev@ampbutchery.co.za', // Use the email you verified with SendGrid
+    subject: 'New Data from Whatsapp Chatbot',
+    text: `Webhook Data Received: ${JSON.stringify(data)}`,
+    html: `<strong>Webhook Data Received:</strong> <pre>${JSON.stringify(data, null, 2)}</pre>`
   };
 
-  // Send the email
   try {
-    await transporter.sendMail(mailOptions);
+    await sgMail.send(msg);
     console.log('Email sent successfully');
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('Error sending email:', error.response ? error.response.body.errors : error.message);
   }
 }
 
+// Webhook route to receive data
+app.post('/webhook', (req, res) => {
+  const webhookData = req.body;
+  console.log('Webhook data received:', webhookData);
+
+  // Send the webhook data via email
+  sendEmail(webhookData);
+
+  // Respond to the webhook request
+  res.status(200).send('Webhook received successfully');
+});
+
+// Home route for testing
+app.get('/', (req, res) => {
+  res.send('Webhook server is running');
+});
+
 // Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
